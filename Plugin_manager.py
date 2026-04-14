@@ -61,8 +61,8 @@ class PluginManager:
     def get_command(self, command_name):
         return self.commands.get(command_name)
     
-    def execute_command(self, command_name, *args, **kwargs):
-        cmd_func = self.get_command(command_name)
-        if cmd_func:
-            return cmd_func(*args, **kwargs)
-        return None
+    async def execute_command(self, command_name, *args, **kwargs):
+    cmd_func = self.get_command(command_name)
+    if cmd_func:
+        return await cmd_func(*args, **kwargs)
+    return None
