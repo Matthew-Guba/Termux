@@ -55,12 +55,12 @@ class PluginManager:
                     full_cmd_name = f"{plugin_name}_{cmd_name}"
                     self.commands[full_cmd_name] = cmd_func
                     self.plugins[plugin_name]['commands'][cmd_name] = cmd_func
-                    logger.info(f"  Команда: /{full_cmd_name}")
+                    logger.info(f"  /{full_cmd_name}")
             
-            logger.info(f"✓ {plugin_name}")
+            logger.info(f"Плагин: {plugin_name}")
             
         except Exception as e:
-            logger.error(f"✗ {plugin_name}: {e}")
+            logger.error(f"Ошибка {plugin_name}: {e}")
             import traceback
             traceback.print_exc()
     
@@ -78,10 +78,8 @@ class PluginManager:
         return self.commands.get(command_name)
     
     async def execute_command(self, command_name, *args, **kwargs):
-        """Выполнить команду плагина"""
         cmd_func = self.get_command(command_name)
         if cmd_func:
-            # Проверить это async функция или нет
             if asyncio.iscoroutinefunction(cmd_func):
                 return await cmd_func(*args, **kwargs)
             else:
