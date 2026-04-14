@@ -22,15 +22,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text += f"📦 Плагинов: {len(plugins)}\n"
     text += f"⚡ Команд: {len(plugin_manager.commands)}\n\n"
     text += "*Основные команды:*\n"
-    text += "/start - ��то меню\n"
-    text += "/plugins - Список плагинов\n"
-    text += "/reload - Перезагрузить\n\n"
+    text += "`/start` - Это меню\n"
+    text += "`/plugins` - Список плагинов\n"
+    text += "`/reload` - Перезагрузить\n\n"
     text += "*Доступные плагины:*\n\n"
     for p in plugins:
         text += f"📦 *{p['name']}*\n"
         text += f"   _{p['info'].get('description', '')}_\n"
         for cmd in p['commands']:
-            text += f"   • /{p['name']}_{cmd}\n"
+            text += f"   • `/{p['name']}_{cmd}`\n"
         text += "\n"
     text += "💻 Или отправь команду shell (без /)"
     await update.message.reply_text(text, parse_mode='Markdown')
@@ -52,7 +52,6 @@ async def reload_plugins(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔄 Перезагрузка плагинов...")
     plugin_manager.load_plugins()
     
-    # Удалить старые обработчики команд плагинов
     handlers_to_remove = []
     for handler in context.application.handlers[0]:
         if isinstance(handler, CommandHandler):
@@ -64,7 +63,6 @@ async def reload_plugins(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for handler in handlers_to_remove:
         context.application.handlers[0].remove(handler)
     
-    # Добавить новые
     for cmd_name in plugin_manager.commands.keys():
         context.application.add_handler(CommandHandler(cmd_name, handle_plugin_command))
     
@@ -81,24 +79,21 @@ async def handle_plugin_command(update: Update, context: ContextTypes.DEFAULT_TY
                 result = str(result)[:4000] + "\n...(обрезано)"
             await update.message.reply_text(str(result), parse_mode='Markdown')
     except Exception as e:
+        logger.error(f"Ошибка команды {command}: {e}")
         await update.message.reply_text(f"❌ Ошибка: {e}")
 
 async def handle_text_and_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка текста и фото - сначала проверяем плагины, потом shell"""
     if not is_authorized(update.effective_user.id):
         return
     
-    # Проверить плагин scheduler на наличие активной настройки
     if 'scheduler' in plugin_manager.plugins:
         scheduler_module = plugin_manager.plugins['scheduler']['module']
         if hasattr(scheduler_module, 'pending_setups'):
             user_id = update.effective_user.id
             if user_id in scheduler_module.pending_setups:
-                # Пользователь в процессе настройки рассылки
                 result = await scheduler_module.handle_message(update, context)
                 return
     
-    # Если это не настройка рассылки - выполнить как shell команду (только для текста)
     if update.message.text:
         await execute_shell(update, context)
 
@@ -133,32 +128,18 @@ async def execute_shell(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     logger.info("🚀 Запуск бота...")
-    
-    # Загрузить плагины
     plugin_manager.load_plugins()
-    
-    # Создать приложение
     app = Application.builder().token(config.BOT_TOKEN).build()
-    
-    # Основные команды
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("plugins", plugins_list))
     app.add_handler(CommandHandler("reload", reload_plugins))
-    
-    # Команды плагинов
     for cmd_name in plugin_manager.commands.keys():
         app.add_handler(CommandHandler(cmd_name, handle_plugin_command))
-    
-    # Обработчик фото (для scheduler)
     app.add_handler(MessageHandler(filters.PHOTO, handle_text_and_photo))
-    
-    # Обработчик текста
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_and_photo))
-    
     logger.info("✅ Бот запущен!")
-    logger.info(f"📦 Загружено плагинов: {len(plugin_manager.plugins)}")
-    logger.info(f"⚡ Зарегистрировано команд: {len(plugin_manager.commands)}")
-    
+    logger.info(f"📦 Плагинов: {len(plugin_manager.plugins)}")
+    logger.info(f"⚡ Команд: {len(plugin_manager.commands)}")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
