@@ -18,31 +18,35 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Access Denied!")
         return
     plugins = plugin_manager.get_plugin_list()
-    text = "Terminal Bot\n\n"
-    text += f"Плагинов: {len(plugins)}\n\n"
+    text = "🤖 Terminal Bot\n\n"
+    text += f"📦 Плагинов: {len(plugins)}\n"
+    text += f"⚡ Команд: {len(plugin_manager.commands)}\n\n"
+    text += "📌 Команды:\n/start /plugins /reload\n\n"
     for p in plugins:
-        text += f"{p['name']}\n"
+        text += f"▫️ {p['name']}\n"
         for cmd in p['commands']:
             text += f"  /{p['name']}_{cmd}\n"
+    text += "\n💻 Или отправь shell команду"
     await update.message.reply_text(text)
 
 async def plugins_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorized(update.effective_user.id):
         return
     plugins = plugin_manager.get_plugin_list()
-    text = f"Плагины: {len(plugins)}\n\n"
+    text = f"📦 Плагины ({len(plugins)}):\n\n"
     for p in plugins:
-        text += f"{p['name']}\n"
+        text += f"▫️ {p['name']}\n"
+        text += f"   {p['info'].get('description', '')}\n\n"
     await update.message.reply_text(text)
 
 async def reload_plugins(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorized(update.effective_user.id):
         return
-    await update.message.reply_text("Перезагрузка...")
+    await update.message.reply_text("🔄 Перезагрузка...")
     plugin_manager.load_plugins()
     for cmd_name in plugin_manager.commands.keys():
         context.application.add_handler(CommandHandler(cmd_name, handle_plugin_command))
-    await update.message.reply_text("Готово!")
+    await update.message.reply_text(f"✅ Готово! Плагинов: {len(plugin_manager.plugins)}")
 
 async def handle_plugin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorized(update.effective_user.id):
@@ -51,28 +55,36 @@ async def handle_plugin_command(update: Update, context: ContextTypes.DEFAULT_TY
     try:
         result = await plugin_manager.execute_command(command, update=update, context=context)
         if result:
-            await update.message.reply_text(str(result)[:4000])
+            if len(str(result)) > 4000:
+                result = str(result)[:4000] + "\n...(обрезано)"
+            await update.message.reply_text(str(result))
     except Exception as e:
-        await update.message.reply_text(f"Ошибка: {e}")
+        await update.message.reply_text(f"❌ Ошибка: {e}")
 
 async def execute_shell(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorized(update.effective_user.id):
         return
     command = update.message.text
     if any(d in command for d in config.DANGEROUS_COMMANDS):
-        await update.message.reply_text("Опасная команда!")
+        await update.message.reply_text("⛔ Опасная команда!")
         return
+    await update.message.reply_text(f"⚙️ Выполняю: {command}")
     try:
         result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=30, cwd=os.getcwd())
         output = result.stdout if result.stdout else result.stderr
         if not output:
-            output = "OK"
-        await update.message.reply_text(output[:4000])
+            output = "✅ Выполнено"
+        if len(output) > 4000:
+            output = output[:4000] + "\n...(обрезано)"
+        await update.message.reply_text(output)
+        await update.message.reply_text(f"📁 {os.getcwd()}")
+    except subprocess.TimeoutExpired:
+        await update.message.reply_text("⏱️ Таймаут!")
     except Exception as e:
-        await update.message.reply_text(f"Ошибка: {e}")
+        await update.message.reply_text(f"❌ Ошибка: {e}")
 
 def main():
-    logger.info("Запуск...")
+    logger.info("🚀 Запуск бота...")
     plugin_manager.load_plugins()
     app = Application.builder().token(config.BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
@@ -81,7 +93,7 @@ def main():
     for cmd_name in plugin_manager.commands.keys():
         app.add_handler(CommandHandler(cmd_name, handle_plugin_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, execute_shell))
-    logger.info("Запущен!")
+    logger.info("✅ Бот запущен!")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
