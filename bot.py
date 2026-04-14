@@ -49,7 +49,7 @@ async def handle_plugin_command(update: Update, context: ContextTypes.DEFAULT_TY
         return
     command = update.message.text[1:]
     try:
-        result = plugin_manager.execute_command(command, update=update, context=context)
+        result = await plugin_manager.execute_command(command, update=update, context=context)
         if result:
             await update.message.reply_text(str(result)[:4000])
     except Exception as e:
